@@ -8,6 +8,7 @@ import FavoriteIcon from '@material-ui/icons/Favorite';
 import WarningIcon from '@material-ui/icons/Warning';
 import PropTypes from 'prop-types';
 import {getValueFromKeyLocalStorage} from '../../services/utils.js';
+import InfiniteScroll from 'react-infinite-scroller';
 import {YoutubeService} from '../../services/youtube/Youtube';
 import './Youtube.scss';
 
@@ -18,19 +19,27 @@ class Youtube extends Component {
         super(props);
         this.state = {
             trends: [],
-            isError: false
+            isError: false,
+            loadVideoBatch: 10
         };
     }
 
+    componentDidUpdate(prevProps, prevState) {
+        if(prevProps.config.maxVideosToLoad !== prevState.trends.length)
+            this.props.onChanges(() => this.loadVideos(this.state.loadVideoBatch));
+    }
+
     componentDidMount() {
-        this.props.config.maxVideosToLoad = getValueFromKeyLocalStorage('itemsPerPage');
+        if(getValueFromKeyLocalStorage('itemsPerPage') !== '') {
+            this.props.config.maxVideosToLoad = getValueFromKeyLocalStorage('itemsPerPage');
+        }
         this.props.setTitle('YOUTUBE');
         this.props.onChanges(() => this.loadVideos());
     }
 
     // fetch
-    async loadVideos() {
-        Axios.all(await service.getTrendingVideos(this.props.config.maxVideosToLoad))
+    async loadVideos(loadVideoBatch) {
+        Axios.all(await service.getTrendingVideos(loadVideoBatch && this.props.config.maxVideosToLoad))
             .then((data) => {
                 this.setState({
                     trends: data,
@@ -85,11 +94,21 @@ class Youtube extends Component {
     }
 
     render() {
-        return !this.state.isError ? (<div id="youtube">
-            <div className="row">
-                {this.youtubeCard()}
-            </div>
-        </div>) : (this.errorOnPage());
+        return !this.state.isError ? (
+                <InfiniteScroll
+                    pageStart={0}
+                    loadMore={() => this.loadVideos()}
+                    hasMore={this.props.config.maxVideosToLoad > 10}
+                    loader={<div className="loader" key={0}>Loading ...</div>}
+                >
+                    <div id="youtube">
+                        <div className="row">
+                            {this.youtubeCard()}
+                        </div>
+                    </div>
+                </InfiniteScroll>
+
+        ) : (this.errorOnPage());
     }
 }
 
